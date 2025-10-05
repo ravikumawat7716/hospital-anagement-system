@@ -9,6 +9,8 @@ db = SQLAlchemy(app)
 class User(db.Model):
     email = db.Column(db.String(50), primary_key=True, nullable=False, unique=True)
     password = db.Column(db.String(50), nullable=False)
+    role = db.Column(db.String(50), nullable=False, default='user')
+    
     
 
 username = 'mad1@gmail.com'
@@ -34,7 +36,12 @@ def login():
         password = request.form.get('password')
         user = User.query.filter_by(email=email, password=password).first()
         if user:
-            return 'You are logged in successfully'
+            if user.role == 'user':
+                return 'You are logged in successfully'
+            if user.role == 'doctor':
+                return 'You are logged in as a doctor'
+            if user.role == 'admin':
+                return 'You are an Admin.'
         else:
             return 'Login failed. Please check your email and password.'
         
@@ -46,8 +53,9 @@ def register():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
-        print(f"Registering user with Email: {email} and Password: {password}")
-        new_user = User(email=email, password=password)
+        role = request.form.get('role')
+        print(f"Registering user with Email: {email} and Password: {password} and Role: {role}")
+        new_user = User(email=email, password=password, role=role)
         db.session.add(new_user)
         db.session.commit()
         print("User registered successfully!")

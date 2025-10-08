@@ -1,16 +1,26 @@
-from flask import Flask, render_template, request
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, render_template, request, redirect
+from models import db, User
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+
+
+
 
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = 'thisisasecretkey'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
-db = SQLAlchemy(app)
+db.init_app(app)
 
-class User(db.Model):
-    email = db.Column(db.String(50), primary_key=True, nullable=False, unique=True)
-    password = db.Column(db.String(50), nullable=False)
-    role = db.Column(db.String(50), nullable=False, default='user')
-    
+
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(user_id)
+
     
 
 username = 'mad1@gmail.com'
@@ -23,6 +33,35 @@ def hello():
 @app.route('/')
 def index():
     return render_template('hello.html')
+
+
+@app.route('/vipaccess')
+@login_required
+def vipacess():
+    return 'This is a VIP Acess Page'
+
+@app.route('/dashboard')
+def dashboard():
+    logged_in_user = current_user
+    print("========================")
+    print(logged_in_user)
+    print("========================")
+    if logged_in_user.is_anonymous == False:
+        print(logged_in_user.email)
+        return render_template('userdashboard.html', email=logged_in_user.email)
+    else:
+        return redirect('/login')
+
+
+@app.route('/admindashboard')
+@login_required
+def admindashboard():
+    who = current_user
+    if who.role == 'admin':
+        return render_template('admindashboard.html')
+    if who.role == 'user':
+        return redirect('/dashboard')
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -37,15 +76,23 @@ def login():
         user = User.query.filter_by(email=email, password=password).first()
         if user:
             if user.role == 'user':
-                return 'You are logged in successfully'
+                login_user(user)
+                print("We need to do something here.")
+                return redirect('/dashboard')
             if user.role == 'doctor':
                 return 'You are logged in as a doctor'
             if user.role == 'admin':
-                return 'You are an Admin.'
+                return redirect('/admindashboard')
         else:
             return 'Login failed. Please check your email and password.'
         
         return "Form Submitted Successfully"
+    logged_in_user = current_user
+    if logged_in_user.is_anonymous == False:
+        if logged_in_user.role == 'admin':
+            return redirect('/admindashboard')
+        if logged_in_user.role == 'user':
+            return redirect('/dashboard')
     return render_template('login.html')
 
 @app.route('/register', methods=['GET', 'POST'])
